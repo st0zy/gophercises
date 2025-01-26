@@ -1,6 +1,7 @@
 package urlshort
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -8,7 +9,7 @@ import (
 	"gopkg.in/yaml.v2"
 )
 
-var ParseError = errors.New("failed to parse yaml")
+var ParseError = errors.New("failed to parse")
 
 // MapHandler will return an http.HandlerFunc (which also
 // implements http.Handler) that will attempt to map any
@@ -65,8 +66,8 @@ func YAMLHandler(yml []byte, fallback http.Handler) (http.HandlerFunc, error) {
 }
 
 type PathMapping struct {
-	Path         string `yaml:"path"`
-	RedirectPath string `yaml:"url"`
+	Path         string `yaml:"path" json:"path"`
+	RedirectPath string `yaml:"url" json:"url"`
 }
 
 func parseYaml(yml []byte) ([]PathMapping, error) {
@@ -75,4 +76,32 @@ func parseYaml(yml []byte) ([]PathMapping, error) {
 	err := yaml.Unmarshal(yml, &mapping)
 	fmt.Println(err)
 	return mapping, err
+}
+
+func parseJson(yml []byte) ([]PathMapping, error) {
+	fmt.Println("Parsing YAMl")
+	var mapping []PathMapping
+	err := json.Unmarshal(yml, &mapping)
+	fmt.Println(err)
+	return mapping, err
+}
+
+func JsonHandler(json []byte, fallback http.Handler) (http.HandlerFunc, error) {
+
+	mappings, err := parseJson(json)
+	if err != nil {
+		return nil, ParseError
+	}
+	fmt.Println(mappings)
+
+	return func(w http.ResponseWriter, r *http.Request) {
+		for _, mapping := range mappings {
+			if mapping.Path == r.URL.Path {
+				http.Redirect(w, r, mapping.RedirectPath, http.StatusPermanentRedirect)
+				return
+			}
+		}
+		fallback.ServeHTTP(w, r)
+	}, nil
+
 }
