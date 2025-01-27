@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"text/template"
 
 	"github.com/st0zy/gophercises/link/parser"
 )
@@ -91,15 +92,17 @@ type SiteMapPrinter struct {
 
 func (s SiteMapPrinter) Write() error {
 	bufferedWriter := bufio.NewWriter(s.writer)
+	tpl := template.Must(template.New("").Parse(`<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  {{range .}}
+  <url>
+    <loc>{{.URL}}</loc>
+  </url>
+  {{end}}
+</urlset>`))
+
 	defer bufferedWriter.Flush()
-	for _, site := range s.sites {
-		// fmt.Println(site)
-		_, err := bufferedWriter.WriteString(site.URL + "\n")
-		// fmt.Println(n)
-		if err != nil {
-			return errors.New("can't write to the specified out format.")
-		}
-	}
+	tpl.Execute(bufferedWriter, s.sites)
 	return nil
 
 }
