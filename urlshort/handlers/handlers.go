@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 
+	mapping "github.com/st0zy/gophercises/urlshort/mapping"
 	"gopkg.in/yaml.v2"
 )
 
@@ -65,22 +66,17 @@ func YAMLHandler(yml []byte, fallback http.Handler) (http.HandlerFunc, error) {
 
 }
 
-type PathMapping struct {
-	Path         string `yaml:"path" json:"path"`
-	RedirectPath string `yaml:"url" json:"url"`
-}
-
-func parseYaml(yml []byte) ([]PathMapping, error) {
+func parseYaml(yml []byte) ([]mapping.PathMapping, error) {
 	fmt.Println("Parsing YAMl")
-	var mapping []PathMapping
+	var mapping []mapping.PathMapping
 	err := yaml.Unmarshal(yml, &mapping)
 	fmt.Println(err)
 	return mapping, err
 }
 
-func parseJson(yml []byte) ([]PathMapping, error) {
+func parseJson(yml []byte) ([]mapping.PathMapping, error) {
 	fmt.Println("Parsing YAMl")
-	var mapping []PathMapping
+	var mapping []mapping.PathMapping
 	err := json.Unmarshal(yml, &mapping)
 	fmt.Println(err)
 	return mapping, err
@@ -96,6 +92,20 @@ func JsonHandler(json []byte, fallback http.Handler) (http.HandlerFunc, error) {
 
 	return func(w http.ResponseWriter, r *http.Request) {
 		for _, mapping := range mappings {
+			if mapping.Path == r.URL.Path {
+				http.Redirect(w, r, mapping.RedirectPath, http.StatusPermanentRedirect)
+				return
+			}
+		}
+		fallback.ServeHTTP(w, r)
+	}, nil
+
+}
+
+func DBHandler(pathMappings []mapping.PathMapping, fallback http.Handler) (http.HandlerFunc, error) {
+
+	return func(w http.ResponseWriter, r *http.Request) {
+		for _, mapping := range pathMappings {
 			if mapping.Path == r.URL.Path {
 				http.Redirect(w, r, mapping.RedirectPath, http.StatusPermanentRedirect)
 				return

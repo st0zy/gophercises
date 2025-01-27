@@ -2,13 +2,22 @@ package main
 
 import (
 	"fmt"
+	"log"
 	"net/http"
 
+	database "github.com/st0zy/gophercises/urlshort/database"
 	handlers "github.com/st0zy/gophercises/urlshort/handlers"
 )
 
 func main() {
 	mux := defaultMux()
+	db, err := database.OpenDB("my.db")
+
+	if err != nil {
+		log.Fatal("failed to load database, skipping db mappings")
+	}
+
+	pathMappingsFromDB := database.GetAllMappings(db)
 
 	// Build the MapHandler using the mux as the fallback
 	pathsToUrls := map[string]string{
@@ -45,8 +54,12 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
+	dbHandler, err := handlers.DBHandler(pathMappingsFromDB, jsonHandler)
+	if err != nil {
+		panic(err)
+	}
 	fmt.Println("Starting the server on :8080")
-	http.ListenAndServe(":8080", jsonHandler)
+	http.ListenAndServe(":8080", dbHandler)
 }
 
 func defaultMux() *http.ServeMux {
