@@ -17,7 +17,7 @@ func main() {
 		panic(err)
 	}
 
-	parser := parser.NewFileParser(f)
+	parser := parser.NewParser(f)
 	fmt.Printf("%+v", parser.Parse())
 
 	// parser.Parse()

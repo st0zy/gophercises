@@ -3,7 +3,6 @@ package parser
 import (
 	"bytes"
 	"io"
-	"os"
 	"strings"
 
 	"github.com/st0zy/gophercises/link/link"
@@ -15,13 +14,13 @@ type LinkParser interface {
 	Parse(r io.Reader) []link.HyperLink
 }
 
-type FileParser struct {
-	File *os.File
+type Parser struct {
+	Reader io.Reader
 }
 
-func (f FileParser) Parse() []link.HyperLink {
+func (p Parser) Parse() []link.HyperLink {
 
-	z, err := html.Parse(f.File)
+	z, err := html.Parse(p.Reader)
 	if err != nil {
 		panic(err)
 	}
@@ -60,8 +59,8 @@ func extractText(node *html.Node) string {
 	return strings.TrimSpace(result.String())
 }
 
-func NewFileParser(f *os.File) FileParser {
-	return FileParser{
-		File: f,
+func NewParser(r io.Reader) Parser {
+	return Parser{
+		Reader: r,
 	}
 }
