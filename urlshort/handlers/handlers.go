@@ -1,4 +1,4 @@
-package urlshort
+package handlers
 
 import (
 	"encoding/json"

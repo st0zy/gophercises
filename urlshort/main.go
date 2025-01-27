@@ -5,8 +5,8 @@ import (
 	"log"
 	"net/http"
 
-	database "github.com/st0zy/gophercises/urlshort/database"
-	handlers "github.com/st0zy/gophercises/urlshort/handlers"
+	"github.com/st0zy/gophercises/urlshort/database"
+	"github.com/st0zy/gophercises/urlshort/handlers"
 )
 
 func main() {
