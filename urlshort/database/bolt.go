@@ -27,7 +27,7 @@ func LoadInitialData(db *bolt.DB) error {
 		if err != nil {
 			return err
 		}
-		err = bucket.Put([]byte("/db-test"), []byte("http://linkedin.com"))
+		err = bucket.Put([]byte("/db-tesst"), []byte("https://linkedin.com"))
 		return err
 
 	})

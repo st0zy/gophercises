@@ -18,6 +18,7 @@ func main() {
 	}
 
 	pathMappingsFromDB := database.GetAllMappings(db)
+	fmt.Println(pathMappingsFromDB)
 
 	// Build the MapHandler using the mux as the fallback
 	pathsToUrls := map[string]string{

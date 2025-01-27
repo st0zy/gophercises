@@ -19,8 +19,6 @@ var ParseError = errors.New("failed to parse")
 // If the path is not provided in the map, then the fallback
 // http.Handler will be called instead.
 func MapHandler(pathsToUrls map[string]string, fallback http.Handler) http.HandlerFunc {
-	//	TODO: Implement this...
-
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		url, ok := pathsToUrls[r.URL.Path]
 		if !ok {
@@ -54,20 +52,21 @@ func YAMLHandler(yml []byte, fallback http.Handler) (http.HandlerFunc, error) {
 		return nil, ParseError
 	}
 
-	return func(w http.ResponseWriter, r *http.Request) {
-		for _, mapping := range mappings {
-			if mapping.Path == r.URL.Path {
-				http.Redirect(w, r, mapping.RedirectPath, http.StatusPermanentRedirect)
-				return
-			}
-		}
-		fallback.ServeHTTP(w, r)
-	}, nil
+	urlmap := buildMap(mappings)
 
+	return MapHandler(urlmap, fallback), nil
+}
+
+func buildMap(mappings []mapping.PathMapping) map[string]string {
+	urlmap := map[string]string{}
+
+	for _, mapping := range mappings {
+		urlmap[mapping.Path] = mapping.RedirectPath
+	}
+	return urlmap
 }
 
 func parseYaml(yml []byte) ([]mapping.PathMapping, error) {
-	fmt.Println("Parsing YAMl")
 	var mapping []mapping.PathMapping
 	err := yaml.Unmarshal(yml, &mapping)
 	fmt.Println(err)
@@ -75,7 +74,6 @@ func parseYaml(yml []byte) ([]mapping.PathMapping, error) {
 }
 
 func parseJson(yml []byte) ([]mapping.PathMapping, error) {
-	fmt.Println("Parsing YAMl")
 	var mapping []mapping.PathMapping
 	err := json.Unmarshal(yml, &mapping)
 	fmt.Println(err)
@@ -88,30 +86,15 @@ func JsonHandler(json []byte, fallback http.Handler) (http.HandlerFunc, error) {
 	if err != nil {
 		return nil, ParseError
 	}
-	fmt.Println(mappings)
 
-	return func(w http.ResponseWriter, r *http.Request) {
-		for _, mapping := range mappings {
-			if mapping.Path == r.URL.Path {
-				http.Redirect(w, r, mapping.RedirectPath, http.StatusPermanentRedirect)
-				return
-			}
-		}
-		fallback.ServeHTTP(w, r)
-	}, nil
+	urlmap := buildMap(mappings)
+	return MapHandler(urlmap, fallback), nil
 
 }
 
 func DBHandler(pathMappings []mapping.PathMapping, fallback http.Handler) (http.HandlerFunc, error) {
 
-	return func(w http.ResponseWriter, r *http.Request) {
-		for _, mapping := range pathMappings {
-			if mapping.Path == r.URL.Path {
-				http.Redirect(w, r, mapping.RedirectPath, http.StatusPermanentRedirect)
-				return
-			}
-		}
-		fallback.ServeHTTP(w, r)
-	}, nil
+	urlmap := buildMap(pathMappings)
+	return MapHandler(urlmap, fallback), nil
 
 }
