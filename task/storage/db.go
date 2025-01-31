@@ -13,25 +13,29 @@ import (
 	"github.com/st0zy/gophercises/task/pkg/listing"
 )
 
-func openDatabase() (*bolt.DB, error) {
+var BUCKET = []byte("tasks")
+var DB_PATH = "my.db"
 
-	db, err := bolt.Open("my.db", 0600, &bolt.Options{Timeout: time.Second * 1})
+var db *bolt.DB
+
+func openDatabase() error {
+	var err error
+	db, err = bolt.Open("my.db", 0600, &bolt.Options{Timeout: time.Second * 1})
 	if err != nil {
-		panic(err)
+		return err
 	}
-	return db, nil
-
+	return nil
 }
 
 func Init() (*bolt.DB, error) {
-	db, err := openDatabase()
+	err := openDatabase()
 	if err != nil {
 		return nil, err
 	}
 
 	defer db.Close()
 	err = db.Update(func(tx *bolt.Tx) error {
-		_, err := tx.CreateBucketIfNotExists([]byte("tasks"))
+		_, err := tx.CreateBucketIfNotExists(BUCKET)
 		return err
 	})
 	if err != nil {
@@ -41,15 +45,14 @@ func Init() (*bolt.DB, error) {
 }
 
 func AddTask(task adding.Task) error {
-	db, err := bolt.Open("my.db", 0600, &bolt.Options{Timeout: time.Second * 5})
-
+	err := openDatabase()
 	if err != nil {
 		return errors.New("failed to open db connection")
 	}
 	defer db.Close()
 
 	err = db.Update(func(tx *bolt.Tx) error {
-		b := tx.Bucket([]byte("tasks"))
+		b := tx.Bucket(BUCKET)
 		if b == nil {
 			return errors.New("failed to retrieve bucket")
 		}
@@ -76,9 +79,9 @@ func AddTask(task adding.Task) error {
 }
 
 func GetTasks() ([]listing.Task, error) {
-	db, err := bolt.Open("my.db", 0600, &bolt.Options{Timeout: time.Second * 5})
+	err := openDatabase()
 	if err != nil {
-		return nil, errors.New("failed to open db connection")
+		return nil, err
 	}
 	defer db.Close()
 
@@ -107,10 +110,11 @@ func GetTasks() ([]listing.Task, error) {
 
 func DoTask(taskId uint64) error {
 
-	db, err := bolt.Open("my.db", 0666, &bolt.Options{Timeout: time.Second * 3})
+	err := openDatabase()
 	if err != nil {
-		return errors.New("failed to open db connection")
+		return err
 	}
+	defer db.Close()
 
 	db.Update(func(tx *bolt.Tx) error {
 		b := tx.Bucket([]byte("tasks"))
