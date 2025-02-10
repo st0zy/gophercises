@@ -9,6 +9,7 @@ import (
 	"net/url"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/st0zy/gophercises/quiet_hn/hn"
@@ -30,9 +31,31 @@ func main() {
 }
 
 func handler(numStories int, tpl *template.Template) http.HandlerFunc {
+
+	sc := storyCache{
+		numStories: numStories,
+		duration:   3 * time.Second,
+	}
+
+	go func() {
+		ticker := time.NewTicker(sc.duration)
+		for {
+			temp := storyCache{
+				numStories: numStories,
+				duration:   sc.duration,
+			}
+			temp.stories()
+			sc.mutex.Lock()
+			sc.cache = temp.cache
+			sc.expiration = temp.expiration
+			sc.mutex.Unlock()
+			<-ticker.C
+		}
+	}()
+
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		start := time.Now()
-		stories, err := getTopStories(numStories)
+		stories, err := sc.stories()
 		if err != nil {
 			http.Error(w, "Failed to load top stories", http.StatusInternalServerError)
 			return
@@ -48,6 +71,31 @@ func handler(numStories int, tpl *template.Template) http.HandlerFunc {
 			return
 		}
 	})
+}
+
+type storyCache struct {
+	cache      []item
+	numStories int
+	expiration time.Time
+	duration   time.Duration
+	mutex      sync.Mutex
+}
+
+func (sc *storyCache) stories() ([]item, error) {
+	sc.mutex.Lock()
+	defer sc.mutex.Unlock()
+
+	if time.Now().Before(sc.expiration) {
+		// fmt.Println("Returning cached stories.")
+		return sc.cache, nil
+	}
+	var err error
+	sc.cache, err = getTopStories(sc.numStories)
+	if err != nil {
+		return nil, err
+	}
+	sc.expiration = time.Now().Add(time.Second * 1)
+	return sc.cache, err
 }
 
 func getTopStories(numStories int) ([]item, error) {
@@ -72,10 +120,10 @@ func getStories(ids []int) []item {
 	var stories []result
 	resultCh := make(chan result)
 	done := make(chan bool)
-	var client hn.Client
 
 	for i := 0; i < len(ids); i++ {
 		go func(index, id int) {
+			var client hn.Client
 			item, err := client.GetItem(id)
 			if err != nil {
 				return
