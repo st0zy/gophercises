@@ -5,7 +5,6 @@ import (
 	"errors"
 	"io"
 	"os"
-	"strings"
 	"sync"
 )
 
@@ -28,10 +27,30 @@ func NewInMemoryVault() *InMemoryVault {
 	}
 }
 
-func NewFileVault() *FileVault {
-	return &FileVault{
+func NewFileVault(opts ...Option) *FileVault {
+	f := &FileVault{
 		encryptionKey: "test123",
 		filePath:      "secrets.db",
+	}
+
+	for _, opt := range opts {
+		opt(f)
+	}
+
+	return f
+}
+
+type Option func(f *FileVault)
+
+func WithVaultPath(path string) Option {
+	return func(f *FileVault) {
+		f.filePath = path
+	}
+}
+
+func WithEncryptionKey(encryptionKey string) Option {
+	return func(f *FileVault) {
+		f.encryptionKey = encryptionKey
 	}
 }
 
@@ -62,60 +81,6 @@ func (f *InMemoryVault) save(key, encryptedValue string) error {
 	return nil
 }
 
-func (f *FileVault) loadKeyValues() error {
-	file, err := os.Open(f.filePath)
-	if err != nil {
-		f.secretMap = map[string]string{}
-		return nil
-	}
-	defer file.Close()
-	var sb strings.Builder
-	_, err = io.Copy(&sb, file)
-	if err != nil {
-		return err
-	}
-
-	decryptedJson, err := Decrypt(f.encryptionKey, sb.String())
-	if err != nil {
-		return err
-	}
-
-	dec := json.NewDecoder(strings.NewReader(decryptedJson))
-	err = dec.Decode(&f.secretMap)
-
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func (f *FileVault) saveKeyValues() error {
-	file, err := os.OpenFile(f.filePath, os.O_RDWR|os.O_CREATE, 0644)
-	if err != nil {
-		return err
-	}
-	defer file.Close()
-
-	var sb strings.Builder
-
-	enc := json.NewEncoder(&sb)
-	err = enc.Encode(f.secretMap)
-	if err != nil {
-		return err
-	}
-	encryptedJson, err := Encrypt(f.encryptionKey, sb.String())
-	if err != nil {
-		return err
-	}
-	_, err = io.Copy(file, strings.NewReader(encryptedJson))
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
 func (f *FileVault) Set(key, value string) error {
 	f.mutex.Lock()
 	defer f.mutex.Unlock()
@@ -141,4 +106,43 @@ func (f *FileVault) Get(key string) (string, error) {
 		return "", errors.New("key does not exist")
 	}
 	return ret, nil
+}
+
+func (f *FileVault) loadKeyValues() error {
+	file, err := os.Open(f.filePath)
+	if err != nil {
+		f.secretMap = map[string]string{}
+		return nil
+	}
+	defer file.Close()
+
+	decryptedReader, err := DecryptReader(f.encryptionKey, file)
+	if err != nil {
+		return err
+	}
+	return f.readKeyValues(decryptedReader)
+}
+
+func (f *FileVault) readKeyValues(r io.Reader) error {
+	dec := json.NewDecoder(r)
+	return dec.Decode(&f.secretMap)
+}
+
+func (f *FileVault) saveKeyValues() error {
+	file, err := os.OpenFile(f.filePath, os.O_RDWR|os.O_CREATE, 0644)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+
+	writer, err := EncryptWriter(f.encryptionKey, file)
+	if err != nil {
+		return err
+	}
+	return f.writeKeyValues(writer)
+}
+
+func (f *FileVault) writeKeyValues(w io.Writer) error {
+	enc := json.NewEncoder(w)
+	return enc.Encode(f.secretMap)
 }
